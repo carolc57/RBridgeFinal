@@ -1,0 +1,169 @@
+---
+title: "RBridge Final Assignment"
+author: "Carol Campbell"
+date: "2022-07-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library (dplyr)
+library (DescTools)
+library(tidyverse)
+install.packages("plyr")
+
+```
+
+It's wedding season. Again. Even though approximately 45% of married couples eventually divorce (it was closer to 50% in the 1980s), couples are still tying the knot, secretly hoping that their marriage will be the one that endures/beats the odds, thus debunking the stats. There have been more studies than not on this topic, with each one offering their opinion on what it takes to remain a happily married couple, yet none has been able to pinpoint the exact reason for the demise of the marital union. There is a myriad of reasons why marriages fail - financial struggles, infidelity, abuse(emotional, physical, mental), illness, sexual incompatibility and/or abandonment, married too young, contentiousness et al. Too many to list. 
+For my final project, I chose the "Affairs" dataset entitled "Fair's Extramarital Affairs Data" located at
+http://vincentarelbundock.github.io/Rdatasets).  Described as “Infidelity data, known as Fair's Affairs, this dataset is a cross-section data from a survey conducted by Psychology Today in 1969.” I am curious to know whether one’s educational/occupational status leads to a greater likelihood of having affairs, or if it’s the opposite, the lack thereof is the main cause of having affairs.  
+
+
+
+
+1. Data Exploration : This should include summary statistics, means, median, quartiles or any other relevant information about the data set. Please include some conclusins in the R Markdown text.
+
+```{r}
+
+# import file, set header = FALSE to get row name header
+affairs <- read.csv('https://raw.githubusercontent.com/carolc57/RBridgeFinal/main/Affairs.csv', header = TRUE, sep = ",") 
+
+head (affairs)   #get a glimpse of the data
+
+summary (affairs)
+
+affairs_mean <- RoundTo(mean (affairs$age),0.2, FUN=round)
+sprintf(paste("The mean of age at marriage is", affairs_mean, "years"))
+
+affairs_median <- median(affairs$yearsmarried)
+sprintf(paste("The median years married is", affairs_median, "years"))
+
+#resort data in age column in ascending order; prep for quartile analysis
+affairs_agesort <- affairs %>% arrange(age) %>% head (601)
+print (head(affairs_agesort, 15)) #print 1st ten rows 
+print (tail(affairs_agesort, 15))   #print last 15 rows
+
+affairs_quantile <- quantile(affairs$age, probs = c(0.25,0.5,0.75,1)) 
+print (affairs_quantile)
+
+print("The affairs_data_quantile shows that the first, second, and third quartiles are 27, 32 and 37 respectively")
+print("The first quartile, or lower quartile, is the value that cuts off the first 25% of the data when it is sorted in ascending order. The second quartile, or median, is the value that cuts off the first 50%. The third quartile, or upper quartile, is the value that cuts off the first 75%.")
+
+```
+
+2. Data wrangling: Please perform some basic transformations. They will need to make sense but could include column renaming, creating a subset of the data, replacing values, or creating new columns with derived data (for example - if it makes sense you could sum two columns together)
+
+
+```{r}
+#Create a new data frame with a subset of the columns and rows. Make sure to name it
+#rename a column, ensure use of rename () function in dplyer due to "Error in `chr_as_locations()`:"
+
+affairs_colname <- plyr::rename(affairs, c(
+       "rating" = "marital_satisfaction",
+       "children" = "number_children"))
+
+head(affairs_colname)
+
+```
+
+
+
+```{r}
+#Change values in education columns to text meanings; store in new column
+
+affairs_change <- affairs
+
+for (i in 1:nrow(affairs_change)){
+  if (affairs_change$education [i] == "9"){
+    affairs_change$edu_descr[i] <- "< Grade school"
+  }else if (affairs_change$education [i] == "12"){
+    affairs_change$edu_descr[i] <- "HS Grad"
+  }else if (affairs_change$education [i] == "14"){
+    affairs_change$edu_descr[i] <- "Some College"
+  }else if (affairs_change$education [i] == "16"){
+    affairs_change$edu_descr[i] <- "College Grad"
+  }else if (affairs_change$education [i] == "17"){
+    affairs_change$edu_descr[i] <- "Some Grad work"
+  }else if (affairs_change$education [i] == "18"){
+    affairs_change$edu_descr[i] <- " Master's"
+  }else {(affairs_change$education [i] == "")
+    affairs_change$edu_descr[i] <- "PhD, MD, other_adv"
+  }  
+}
+
+#reorder columns so that education and edu_descr are together, give new name
+affairs_change1 <- affairs_change[ , c(1,2,3,4,5,6,7,10,8,9)]
+
+print (head(affairs_change1, 15)) #print 1st 15 rows
+print (tail(affairs_change1, 15)) #print last 15 rows 
+
+```
+
+3. Graphics: Please make sure to display at least one scatterplot, box plot and histogram. Don't be limited to this. Please explore the many other options in R packages such as ggplot2. 
+
+```{r}
+#scatterplot
+affairs_change1 %>%
+  filter (yearsmarried > 5) %>%
+  ggplot(aes (x= yearsmarried,
+              y= affairs))+
+  geom_point(aes(color = education))+
+  geom_smooth (method = lm,
+               se = T)+
+  labs(x = "# Years Married",
+       y = "# of Affairs",
+       title = "Affairs vs Yrs Married")+
+  theme_minimal()
+
+ggsave("scatterplot.png", width = 4, height = 3, dpi = 1000)
+
+
+```
+
+
+```{r}
+#histogram of educational level
+affairs_change1 %>%
+ filter(education >= 12 & affairs >= 1) %>%
+  ggplot(aes(x = education))+
+  geom_histogram(color = "black",fill = "maroon", binwidth = 2)+
+  theme_bw()+
+  labs(x = "Education",
+       y = NULL,
+       title = "Affairs by educational level, HS or higher")
+ggsave ("histogram.png", width = 4, height = 3, dpi = 1000)
+```
+
+```{r}
+#boxplot
+library(dplyr)
+
+affairs_1ormore <-  filter(affairs_change1, affairs >= 1)
+head(affairs_1ormore)
+
+ggplot(affairs_1ormore, aes(edu_descr, affairs))+
+  geom_boxplot(fill = "pink", color = "darkblue" )+
+  labs(x = "Education level" , y =  "# of Affairs had")+
+  coord_flip()+
+  theme_classic()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  
+
+# saving the final figure as .png fle 4" wide x 3" high
+ggsave ("boxplot.png", width = 4, height = 3, dpi = 1000)
+```
+
+
+4. Please write a conclusion paragraph in R markdown at the end.
+
+After studying and analyzing this dataset in R, I conclude that the educational group(s) that had the highest incidents of cheating/affairs were those who married 5 years or more and had either HS Diploma, some college or some Grad work had the highest probability of cheating. Interestingly enough, those who graduated college, or had Master's or advanced level degrees had a lower probability of cheating.  
+
+
+
+5. BONUS - place the original.csv in a github file and have R read from the link. This will be a very useful skill as you progress in your data science education and career. 
+
+```{r}
+##import from github directory
+affairs <- read.csv('https://raw.githubusercontent.com/carolc57/RBridgeFinal/main/Affairs.csv', header = TRUE, sep = ",")
+```
+
